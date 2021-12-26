@@ -1,0 +1,1 @@
+mpicc main.c -o ./bin/main -lm
