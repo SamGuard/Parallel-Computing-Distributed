@@ -1,0 +1,19 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "shell",
+      "command": "gcc",
+      "args": [
+        "-g",
+        "main.c",
+        "-o",
+        "main",
+        "-Impi-source/src/include/"
+      ],
+      "group": "build",
+      "problemMatcher": "$gcc"
+    }
+  ]
+}
