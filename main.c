@@ -311,9 +311,9 @@ void manager(const unsigned int width, const unsigned int height,
         */
     }
     retrieve_entire_grid_from_workers(gap, n_workers, &g, g_data_array);
-    print_grid(&g);
-    printf("------\n");
-    printf("time: %d\n", (int)(time(NULL) - startTime));
+    //print_grid(&g);
+    //printf("------\n");
+    printf("\ntime: %d\n", (int)(time(NULL) - startTime));
     free(g_data_array);
 }
 
