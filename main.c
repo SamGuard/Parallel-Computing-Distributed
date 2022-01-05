@@ -380,7 +380,7 @@ void worker(const unsigned int my_rank) {
 }
 
 int main(int argc, char** argv) {
-    const unsigned int width = 8, height = 8;
+    const unsigned int width = 8192, height = 8192;
     int rc, myrank, nproc, namelen;
     char name[MPI_MAX_PROCESSOR_NAME];
 
