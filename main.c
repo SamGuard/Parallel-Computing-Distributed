@@ -4,6 +4,7 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define ITERATIONS 2236
 
@@ -265,6 +266,7 @@ void recv_perimiter(Grid* g, unsigned int row1, unsigned int row2,
 
 void manager(const unsigned int width, const unsigned int height,
              const unsigned int n_process) {
+    time_t startTime = time(NULL);
     const unsigned int n_workers = n_process - 1;  // Number of workers
     const float gap =
         (float)height / (float)n_workers;  // How many columns per worker
@@ -311,6 +313,7 @@ void manager(const unsigned int width, const unsigned int height,
     retrieve_entire_grid_from_workers(gap, n_workers, &g, g_data_array);
     print_grid(&g);
     printf("------\n");
+    printf("time: %d\n", (int)(time(NULL) - startTime));
     free(g_data_array);
 }
 
@@ -405,7 +408,6 @@ int main(int argc, char** argv) {
     } else {
         worker(myrank);
     }
-
     MPI_Finalize();
 
     return 0;
