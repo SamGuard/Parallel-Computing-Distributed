@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define ITERATIONS 2236
+#define ITERATIONS 8547
 
 // Handles for custom datatypes
 MPI_Datatype initial_data_handle;
@@ -380,7 +380,7 @@ void worker(const unsigned int my_rank) {
 }
 
 int main(int argc, char** argv) {
-    const unsigned int width = 1024, height = 1024;
+    const unsigned int width = 8, height = 8;
     int rc, myrank, nproc, namelen;
     char name[MPI_MAX_PROCESSOR_NAME];
 
