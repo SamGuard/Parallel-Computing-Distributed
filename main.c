@@ -171,7 +171,7 @@ void retrieve_entire_grid_from_workers(const float gap,
     }
 
     double* valBuff =
-        (double*)malloc(((int)ceil(gap) + 2) * g->width * sizeof(double));
+        (double*)malloc(((int)ceil(gap) * 2) * g->width * sizeof(double));
     if (valBuff == NULL) {
         printf(
             "Failed to allocate memory in retrieve_entire_grid_from_workers\n");
@@ -441,7 +441,7 @@ int main(int argc, char** argv) {
     // Get name of hardware running this process
     namelen = MPI_MAX_PROCESSOR_NAME;
     MPI_Get_processor_name(name, &namelen);
-    printf("%s connected.\n", name);
+    printf("%s_%d connected.\n", name, myrank);
 
     // Initalise custom data types
     create_custom_data_types();
