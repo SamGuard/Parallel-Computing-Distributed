@@ -1,8 +1,12 @@
+#define TRUE 1
+#define FALSE 0
+
 // Tag numbers
 #define TAG_INIT_GRID 100  // Meta data for the workers grid
 #define TAG_GRID_DATA 101  // Communicating values in the grid
 #define TAG_INNER_PERIM 102 // Send inner perimeter of a grid
 #define TAG_OUTTER_PERIM 103 // Send outter perimiter of grid
+#define TAG_IS_WORKER_DONE 104 // Checking if worker is finished
 
 // Types of grid arrangement
 #define PATTERN_ZERO 0

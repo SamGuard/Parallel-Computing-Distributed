@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define ITERATIONS 8547
 
 // Handles for custom datatypes
 MPI_Datatype initial_data_handle;
@@ -53,6 +52,7 @@ void print_error(int err_code) {
     int resLength = 0;
     MPI_Error_string(err_code, stringBuff, &resLength);
     printf("Error in communication, error code: %s\n", stringBuff);
+    free(stringBuff);
 }
 
 // initialises grid
@@ -94,7 +94,7 @@ void generate_grid(Grid* g, int init) {
 
 // Send data to workers of the size of grid they will work on
 grid_metadata* send_init_data_to_workers(unsigned int width, float gap,
-                                         unsigned int n_workers) {
+                                         unsigned int n_workers, double precision) {
     MPI_Request init_data_requests[n_workers];
     initial_data init_data;
     // Holds all information about the position, size and length of grids in
@@ -120,7 +120,7 @@ grid_metadata* send_init_data_to_workers(unsigned int width, float gap,
         init_data.height = g_data->height = end_row - start_row;
         g_data->length = g_data->height * width;
 
-        init_data.precision = 0.1;
+        init_data.precision = precision;
         // Send asynchronously so the grid can be generated in the meantime
         MPI_Isend(&init_data, 1, initial_data_handle, i + 1, TAG_INIT_GRID,
                   MPI_COMM_WORLD, &init_data_requests[i]);
@@ -262,17 +262,24 @@ void recv_perimiter(Grid* g, unsigned int row1, unsigned int row2,
         }
         // printf("\n");
     }
+    free(buff);
+}
+
+int is_worker_done(int rank){
+    int res;
+    MPI_Recv(&res, 1, MPI_INT, rank, TAG_IS_WORKER_DONE, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    return res;
 }
 
 void manager(const unsigned int width, const unsigned int height,
-             const unsigned int n_process) {
+             const unsigned int n_process, const double precision) {
     time_t startTime = time(NULL);
     const unsigned int n_workers = n_process - 1;  // Number of workers
     const float gap =
         (float)height / (float)n_workers;  // How many columns per worker
 
     grid_metadata* g_data_array;  // Stores meta data about the workers grids
-    g_data_array = send_init_data_to_workers(width, gap, n_workers);
+    g_data_array = send_init_data_to_workers(width, gap, n_workers, precision);
 
     Grid g;
     g.width = width;
@@ -293,41 +300,56 @@ void manager(const unsigned int width, const unsigned int height,
     }
 
     unsigned int row1, row2;
-    for (unsigned int i = 0; i < ITERATIONS; i++) {
+    int is_finished = FALSE;
+    unsigned int iteration = 0;
+    while(is_finished == FALSE) {
         for (unsigned int i = 0; i < n_workers; i++) {
             row1 = g_data_array[i].start_index / width;
             row2 = row1 + g_data_array[i].height - 1;
+            MPI_Send(&is_finished, 1, MPI_INT, i + 1, TAG_IS_WORKER_DONE, MPI_COMM_WORLD);
             send_perimeter(&g, row1, row2, i + 1);
         }
-
+        is_finished = TRUE;
         for (unsigned int i = 0; i < n_workers; i++) {
             row1 = g_data_array[i].start_index / width + 1;
             row2 = row1 + g_data_array[i].height - 3;
             recv_perimiter(&g, row1, row2, i + 1);
+            if(is_worker_done(i + 1) == FALSE) {
+                is_finished = FALSE;
+            }
         }
-        /*
-        print_grid(&g);
-        printf("------\n");
-        */
+        iteration++;
+    }
+    for (unsigned int i = 0; i < n_workers; i++) {
+        MPI_Send(&is_finished, 1, MPI_INT, i + 1, TAG_IS_WORKER_DONE, MPI_COMM_WORLD);
     }
     retrieve_entire_grid_from_workers(gap, n_workers, &g, g_data_array);
     //print_grid(&g);
     //printf("------\n");
-    printf("\ntime: %d\n", (int)(time(NULL) - startTime));
+    //printf("\ntime: %d\n", (int)(time(NULL) - startTime));
+
+    printf("%d,%u,%u,%f,%d,%d", n_process, width, height, precision, iteration,
+           (int)(time(NULL) - startTime));
+
     free(g_data_array);
 }
 
-void compute_step(Grid* in, Grid* out) {
-    double v0, v1, v2, v3;
+double compute_step(Grid* in, Grid* out) {
+    double v0, v1, v2, v3, max_diff = 0.0, diff;
+    unsigned int index;
     for (unsigned int y = 1; y < in->height - 1; y++) {
         for (unsigned int x = 1; x < in->width - 1; x++) {
+            index = x + y * in->width;
             v0 = in->val[x + 1 + y * in->width];
             v1 = in->val[x - 1 + y * in->width];
             v2 = in->val[x + (y + 1) * in->width];
             v3 = in->val[x + (y - 1) * in->width];
-            out->val[x + y * in->width] = (v0 + v1 + v2 + v3) / 4.0;
+            out->val[index] = (v0 + v1 + v2 + v3) / 4.0;
+            diff = fabs(out->val[index] - in->val[index]);
+            max_diff = max_diff < diff ? diff : max_diff;
         }
     }
+    return max_diff;
 }
 
 void worker(const unsigned int my_rank) {
@@ -359,28 +381,36 @@ void worker(const unsigned int my_rank) {
         g1.val[(y + 1) * g0.width - 1] = g0.val[(y + 1) * g0.width - 1];
     }
 
-    for (unsigned int i = 0; i < ITERATIONS; i++) {
-        recv_perimiter(&g0, 0, g0.height - 1, 0);
-        compute_step(&g0, &g1);
-
-        if (my_rank == 1 && 0) {
-            print_grid(&g0);
-            printf("----\n");
-            print_grid(&g1);
-            printf("----\n");
+    int is_finished = FALSE, is_less_than_prec;
+    while(TRUE) {
+        // See if program is finished
+        MPI_Recv(&is_finished, 1, MPI_INT, 0, TAG_IS_WORKER_DONE, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        if(is_finished == TRUE){
+            break;
         }
 
+        recv_perimiter(&g0, 0, g0.height - 1, 0);
+        is_less_than_prec = compute_step(&g0, &g1) < precision;
         send_perimeter(&g1, 1, g0.height - 2, 0);
+
         temp = g1;
         g1 = g0;
         g0 = temp;
+        // Send if this worker's grid is under the precision required
+        MPI_Send(&is_less_than_prec, 1, MPI_INT, 0, TAG_IS_WORKER_DONE, MPI_COMM_WORLD);
     }
     MPI_Send(g0.val, g0.width * g0.height, MPI_DOUBLE, 0, TAG_GRID_DATA,
              MPI_COMM_WORLD);
 }
 
 int main(int argc, char** argv) {
-    const unsigned int width = 8192, height = 8192;
+    unsigned int width = 64, height = 64;
+    double precision = 0.001;
+    if(argc == 4){
+        width = atoi(argv[1]);
+        height = atoi(argv[2]);
+        precision = atof(argv[3]);
+    }
     int rc, myrank, nproc, namelen;
     char name[MPI_MAX_PROCESSOR_NAME];
 
@@ -404,7 +434,7 @@ int main(int argc, char** argv) {
     create_custom_data_types();
 
     if (myrank == 0) {
-        manager(width, height, nproc);
+        manager(width, height, nproc, precision);
     } else {
         worker(myrank);
     }
