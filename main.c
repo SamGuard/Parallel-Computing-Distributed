@@ -4,8 +4,7 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
-
+#include <sys/time.h>
 
 // Handles for custom datatypes
 MPI_Datatype initial_data_handle;
@@ -94,7 +93,8 @@ void generate_grid(Grid* g, int init) {
 
 // Send data to workers of the size of grid they will work on
 grid_metadata* send_init_data_to_workers(unsigned int width, float gap,
-                                         unsigned int n_workers, double precision) {
+                                         unsigned int n_workers,
+                                         double precision) {
     MPI_Request init_data_requests[n_workers];
     initial_data init_data;
     // Holds all information about the position, size and length of grids in
@@ -265,15 +265,16 @@ void recv_perimiter(Grid* g, unsigned int row1, unsigned int row2,
     free(buff);
 }
 
-int is_worker_done(int rank){
+int is_worker_done(int rank) {
     int res;
-    MPI_Recv(&res, 1, MPI_INT, rank, TAG_IS_WORKER_DONE, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(&res, 1, MPI_INT, rank, TAG_IS_WORKER_DONE, MPI_COMM_WORLD,
+             MPI_STATUS_IGNORE);
     return res;
 }
 
 void manager(const unsigned int width, const unsigned int height,
-             const unsigned int n_process, const double precision) {
-    time_t startTime = time(NULL);
+             const unsigned int n_process, const double precision,
+             struct timeval startTime) {
     const unsigned int n_workers = n_process - 1;  // Number of workers
     const float gap =
         (float)height / (float)n_workers;  // How many columns per worker
@@ -302,11 +303,12 @@ void manager(const unsigned int width, const unsigned int height,
     unsigned int row1, row2;
     int is_finished = FALSE;
     unsigned int iteration = 0;
-    while(is_finished == FALSE) {
+    while (is_finished == FALSE) {
         for (unsigned int i = 0; i < n_workers; i++) {
             row1 = g_data_array[i].start_index / width;
             row2 = row1 + g_data_array[i].height - 1;
-            MPI_Send(&is_finished, 1, MPI_INT, i + 1, TAG_IS_WORKER_DONE, MPI_COMM_WORLD);
+            MPI_Send(&is_finished, 1, MPI_INT, i + 1, TAG_IS_WORKER_DONE,
+                     MPI_COMM_WORLD);
             send_perimeter(&g, row1, row2, i + 1);
         }
         is_finished = TRUE;
@@ -314,22 +316,28 @@ void manager(const unsigned int width, const unsigned int height,
             row1 = g_data_array[i].start_index / width + 1;
             row2 = row1 + g_data_array[i].height - 3;
             recv_perimiter(&g, row1, row2, i + 1);
-            if(is_worker_done(i + 1) == FALSE) {
+            if (is_worker_done(i + 1) == FALSE) {
                 is_finished = FALSE;
             }
         }
         iteration++;
     }
     for (unsigned int i = 0; i < n_workers; i++) {
-        MPI_Send(&is_finished, 1, MPI_INT, i + 1, TAG_IS_WORKER_DONE, MPI_COMM_WORLD);
+        MPI_Send(&is_finished, 1, MPI_INT, i + 1, TAG_IS_WORKER_DONE,
+                 MPI_COMM_WORLD);
     }
     retrieve_entire_grid_from_workers(gap, n_workers, &g, g_data_array);
-    //print_grid(&g);
-    //printf("------\n");
-    //printf("\ntime: %d\n", (int)(time(NULL) - startTime));
+    // print_grid(&g);
+    // printf("------\n");
+    // printf("\ntime: %d\n", (int)(time(NULL) - startTime));
 
-    printf("%d,%u,%u,%f,%d,%d", n_process, width, height, precision, iteration,
-           (int)(time(NULL) - startTime));
+    struct timeval endTime;
+    gettimeofday(&endTime, NULL);
+    double diffTime = ((endTime.tv_sec * 1000000 + endTime.tv_usec) -
+                       (startTime.tv_sec * 1000000 + startTime.tv_usec));
+    diffTime = diffTime / 1000000.0;
+    printf("%d,%u,%u,%f,%d,%f", n_process, width, height, precision, iteration,
+           diffTime);
 
     free(g_data_array);
 }
@@ -382,10 +390,11 @@ void worker(const unsigned int my_rank) {
     }
 
     int is_finished = FALSE, is_less_than_prec;
-    while(TRUE) {
+    while (TRUE) {
         // See if program is finished
-        MPI_Recv(&is_finished, 1, MPI_INT, 0, TAG_IS_WORKER_DONE, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        if(is_finished == TRUE){
+        MPI_Recv(&is_finished, 1, MPI_INT, 0, TAG_IS_WORKER_DONE,
+                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        if (is_finished == TRUE) {
             break;
         }
 
@@ -397,16 +406,20 @@ void worker(const unsigned int my_rank) {
         g1 = g0;
         g0 = temp;
         // Send if this worker's grid is under the precision required
-        MPI_Send(&is_less_than_prec, 1, MPI_INT, 0, TAG_IS_WORKER_DONE, MPI_COMM_WORLD);
+        MPI_Send(&is_less_than_prec, 1, MPI_INT, 0, TAG_IS_WORKER_DONE,
+                 MPI_COMM_WORLD);
     }
     MPI_Send(g0.val, g0.width * g0.height, MPI_DOUBLE, 0, TAG_GRID_DATA,
              MPI_COMM_WORLD);
 }
 
 int main(int argc, char** argv) {
+    struct timeval startTime;
+    gettimeofday(&startTime, NULL);
+
     unsigned int width = 64, height = 64;
     double precision = 0.001;
-    if(argc == 4){
+    if (argc == 4) {
         width = atoi(argv[1]);
         height = atoi(argv[2]);
         precision = atof(argv[3]);
@@ -434,7 +447,7 @@ int main(int argc, char** argv) {
     create_custom_data_types();
 
     if (myrank == 0) {
-        manager(width, height, nproc, precision);
+        manager(width, height, nproc, precision, startTime);
     } else {
         worker(myrank);
     }
