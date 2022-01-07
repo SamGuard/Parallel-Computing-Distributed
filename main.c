@@ -263,13 +263,14 @@ int is_worker_done(int rank) {
 void manager(const unsigned int width, const unsigned int height,
              const unsigned int n_process, const double precision,
              struct timeval startTime) {
+    printf("Started manager\n");
     const unsigned int n_workers = n_process - 1;  // Number of workers
     const float gap =
         (float)height / (float)n_workers;  // How many columns per worker
 
     grid_metadata* g_data_array;  // Stores meta data about the workers grids
     g_data_array = send_init_data_to_workers(width, gap, n_workers, precision);
-
+    printf("Sent init data\n");
     Grid g;
     g.width = width;
     g.height = height;
@@ -277,7 +278,7 @@ void manager(const unsigned int width, const unsigned int height,
 
     // Initalise each worker with grid
     send_entire_grid_to_workers(gap, n_workers, &g, g_data_array);
-
+    printf("Sent entire grid\n");
     unsigned int row1, row2;
     int is_finished = FALSE;
     unsigned int iteration = 0;
@@ -300,11 +301,14 @@ void manager(const unsigned int width, const unsigned int height,
         }
         iteration++;
     }
+    printf("Done interations\n");
     for (unsigned int i = 0; i < n_workers; i++) {
         MPI_Send(&is_finished, 1, MPI_INT, i + 1, TAG_IS_WORKER_DONE,
                  MPI_COMM_WORLD);
     }
+    printf("Sent finish message\n");
     retrieve_entire_grid_from_workers(gap, n_workers, &g, g_data_array);
+    printf("Retrieved entire grid\n");
     // printf("\ntime: %d\n", (int)(time(NULL) - startTime));
 
     struct timeval endTime;
@@ -312,11 +316,11 @@ void manager(const unsigned int width, const unsigned int height,
     double diffTime = ((endTime.tv_sec * 1000000 + endTime.tv_usec) -
                        (startTime.tv_sec * 1000000 + startTime.tv_usec));
     diffTime = diffTime / 1000000.0;
-    printf("%d,%u,%u,%f,%d,%f", n_process, width, height, precision, iteration,
-           diffTime);
+    printf("%d,%u,%u,%f,%d,%f\n", n_process, width, height, precision,
+           iteration, diffTime);
 
-    //print_grid(&g);
-    //printf("------\n");
+    // print_grid(&g);
+    // printf("------\n");
 
     free(g_data_array);
 }
@@ -420,7 +424,7 @@ int main(int argc, char** argv) {
     // Get name of hardware running this process
     namelen = MPI_MAX_PROCESSOR_NAME;
     MPI_Get_processor_name(name, &namelen);
-    printf("%s_%d connected.\n", name, myrank);
+    //printf("%s_%d connected.\n", name, myrank);
 
     // Initalise custom data types
     create_custom_data_types();
