@@ -315,8 +315,8 @@ void manager(const unsigned int width, const unsigned int height,
     printf("%d,%u,%u,%f,%d,%f", n_process, width, height, precision, iteration,
            diffTime);
 
-    print_grid(&g);
-    printf("------\n");
+    //print_grid(&g);
+    //printf("------\n");
 
     free(g_data_array);
 }
