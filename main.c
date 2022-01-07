@@ -121,26 +121,16 @@ grid_metadata* send_init_data_to_workers(unsigned int width, float gap,
         g_data->length = g_data->height * width;
 
         init_data.precision = precision;
-        // Send asynchronously so the grid can be generated in the meantime
-        MPI_Isend(&init_data, 1, initial_data_handle, i + 1, TAG_INIT_GRID,
-                  MPI_COMM_WORLD, &init_data_requests[i]);
+        MPI_Send(&init_data, 1, initial_data_handle, i + 1, TAG_INIT_GRID,
+                 MPI_COMM_WORLD);
     }
 
-    MPI_Status stat;
-    for (unsigned int i = 0; i < n_workers; i++) {
-        if (MPI_Wait(&init_data_requests[i], &stat) != MPI_SUCCESS) {
-            print_error(stat.MPI_ERROR);
-            return NULL;
-        }
-    }
     return g_data_array;
 }
 
 // Sends each worker their section of the grid to work on
-// Requests are asynchronous
-MPI_Request* send_entire_grid_to_workers(const float gap,
-                                         const unsigned int n_workers, Grid* g,
-                                         grid_metadata* g_data_array) {
+void send_entire_grid_to_workers(const float gap, const unsigned int n_workers,
+                                 Grid* g, grid_metadata* g_data_array) {
     // Returned from function so it can wait until all data has been sent before
     // checking if they have finished
     MPI_Request* requests =
@@ -153,11 +143,9 @@ MPI_Request* send_entire_grid_to_workers(const float gap,
         printf("Start Index: %d, Length: %d\n", g_data_array[i].start_index,
                g_data_array[i].length);
         */
-        MPI_Isend(g->val + g_data_array[i].start_index, g_data_array[i].length,
-                  MPI_DOUBLE, i + 1, TAG_GRID_DATA, MPI_COMM_WORLD,
-                  &requests[i]);
+        MPI_Send(g->val + g_data_array[i].start_index, g_data_array[i].length,
+                 MPI_DOUBLE, i + 1, TAG_GRID_DATA, MPI_COMM_WORLD);
     }
-    return requests;
 }
 
 // Gets all data from all workers and aggregates it into one grid
@@ -288,17 +276,7 @@ void manager(const unsigned int width, const unsigned int height,
     generate_grid(&g, PATTERN_GRADIENT);
 
     // Initalise each worker with grid
-    MPI_Request* send_requests =
-        send_entire_grid_to_workers(gap, n_workers, &g, g_data_array);
-    {
-        MPI_Status stat;
-        for (unsigned int i = 0; i < n_workers; i++) {
-            if (MPI_Wait(&send_requests[i], &stat) != MPI_SUCCESS) {
-                print_error(stat.MPI_ERROR);
-                return;
-            }
-        }
-    }
+    send_entire_grid_to_workers(gap, n_workers, &g, g_data_array);
 
     unsigned int row1, row2;
     int is_finished = FALSE;
@@ -327,8 +305,6 @@ void manager(const unsigned int width, const unsigned int height,
                  MPI_COMM_WORLD);
     }
     retrieve_entire_grid_from_workers(gap, n_workers, &g, g_data_array);
-    // print_grid(&g);
-    // printf("------\n");
     // printf("\ntime: %d\n", (int)(time(NULL) - startTime));
 
     struct timeval endTime;
@@ -338,6 +314,9 @@ void manager(const unsigned int width, const unsigned int height,
     diffTime = diffTime / 1000000.0;
     printf("%d,%u,%u,%f,%d,%f", n_process, width, height, precision, iteration,
            diffTime);
+
+    print_grid(&g);
+    printf("------\n");
 
     free(g_data_array);
 }
