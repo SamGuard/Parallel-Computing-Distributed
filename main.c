@@ -345,12 +345,13 @@ double compute_step(Grid* in, Grid* out) {
 }
 
 void worker(const unsigned int my_rank) {
-    initial_data init_data;
+    initial_data *init_data_p = (initial_data*) malloc(sizeof(initial_data));
     MPI_Status stat;
     Grid g0, g1, temp;
-    MPI_Recv(&init_data, 1, initial_data_handle, 0, TAG_INIT_GRID,
+    MPI_Recv(init_data_p, 1, initial_data_handle, 0, TAG_INIT_GRID,
              MPI_COMM_WORLD, &stat);
     return;
+    initial_data init_data = *init_data_p;
     g0.width = g1.width = init_data.width;
     g0.height = g1.height = init_data.height;
     // printf("Width: %d, Height: %d\n", g0.width, g0.height);
@@ -394,10 +395,8 @@ void worker(const unsigned int my_rank) {
         MPI_Send(&is_less_than_prec, 1, MPI_INT, 0, TAG_IS_WORKER_DONE,
                  MPI_COMM_WORLD);
     }
-    printf("Finished. %d\n", my_rank);
     MPI_Send(g0.val, g0.width * g0.height, MPI_DOUBLE, 0, TAG_GRID_DATA,
              MPI_COMM_WORLD);
-    printf("Sent end, %d\n", my_rank);
 }
 
 int main(int argc, char** argv) {
@@ -436,9 +435,7 @@ int main(int argc, char** argv) {
     if (myrank == 0) {
         manager(width, height, nproc, precision, startTime);
     } else {
-        printf("Worker: %d\n", myrank);
         worker(myrank);
-        printf("Worker exiting %d\n", myrank);
     }
     MPI_Finalize();
 
