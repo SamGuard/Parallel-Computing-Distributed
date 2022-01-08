@@ -348,6 +348,7 @@ void worker(const unsigned int my_rank) {
     initial_data init_data;
     MPI_Status stat;
     Grid g0, g1, temp;
+    printf("size %d\n", sizeof(initial_data));
     MPI_Recv(&init_data, 1, initial_data_handle, 0, TAG_INIT_GRID,
              MPI_COMM_WORLD, &stat);
     return;
