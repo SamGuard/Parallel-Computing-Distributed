@@ -433,6 +433,7 @@ int main(int argc, char** argv) {
     if (myrank == 0) {
         manager(width, height, nproc, precision, startTime);
     } else {
+        printf("Worker: %d\n", myrank);
         worker(myrank);
         printf("Worker exiting %d\n", myrank);
     }
