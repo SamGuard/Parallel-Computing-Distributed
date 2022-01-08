@@ -345,13 +345,12 @@ double compute_step(Grid* in, Grid* out) {
 }
 
 void worker(const unsigned int my_rank) {
-    initial_data *init_data_p = (initial_data*) malloc(sizeof(initial_data));
+    initial_data init_data;
     MPI_Status stat;
     Grid g0, g1, temp;
-    MPI_Recv(init_data_p, 1, initial_data_handle, 0, TAG_INIT_GRID,
+    MPI_Recv(&init_data, 1, initial_data_handle, 0, TAG_INIT_GRID,
              MPI_COMM_WORLD, &stat);
     return;
-    initial_data init_data = *init_data_p;
     g0.width = g1.width = init_data.width;
     g0.height = g1.height = init_data.height;
     // printf("Width: %d, Height: %d\n", g0.width, g0.height);
