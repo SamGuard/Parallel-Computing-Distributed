@@ -346,7 +346,7 @@ double compute_step(Grid* in, Grid* out) {
 
 void worker(const unsigned int my_rank) {
     initial_data init_data;
-    void *buffer = malloc(24);
+    void *buffer = malloc(31);
     MPI_Status stat;
     Grid g0, g1, temp;
     MPI_Recv(buffer, 1, initial_data_handle, 0, TAG_INIT_GRID,
