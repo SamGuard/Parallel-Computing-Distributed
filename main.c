@@ -121,6 +121,7 @@ grid_metadata* send_init_data_to_workers(unsigned int width, float gap,
         g_data->length = g_data->height * width;
 
         init_data.precision = precision;
+        printf("size: %ld\n", sizeof(initial_data));
         MPI_Send(&init_data, 1, initial_data_handle, i + 1, TAG_INIT_GRID,
                  MPI_COMM_WORLD);
     }
@@ -432,9 +433,7 @@ int main(int argc, char** argv) {
     create_custom_data_types();
 
     if (myrank == 0) {
-        printf("int: %d, double: %d\n", sizeof(unsigned int), sizeof(double));
         manager(width, height, nproc, precision, startTime);
-        printf("done\n");
     } else {
         worker(myrank);
     }
