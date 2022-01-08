@@ -346,7 +346,7 @@ double compute_step(Grid* in, Grid* out) {
 
 void worker(const unsigned int my_rank) {
     initial_data init_data;
-    void *buffer = malloc(32);
+    void *buffer = malloc(16);
     MPI_Status stat;
     Grid g0, g1, temp;
     MPI_Recv(buffer, 1, initial_data_handle, 0, TAG_INIT_GRID,
@@ -434,6 +434,7 @@ int main(int argc, char** argv) {
 
     if (myrank == 0) {
         manager(width, height, nproc, precision, startTime);
+        printf("done\n");
     } else {
         worker(myrank);
     }
