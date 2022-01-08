@@ -391,10 +391,10 @@ void worker(const unsigned int my_rank) {
         MPI_Send(&is_less_than_prec, 1, MPI_INT, 0, TAG_IS_WORKER_DONE,
                  MPI_COMM_WORLD);
     }
-    printf("Finished.\n");
+    printf("Finished. %d\n", my_rank);
     MPI_Send(g0.val, g0.width * g0.height, MPI_DOUBLE, 0, TAG_GRID_DATA,
              MPI_COMM_WORLD);
-    printf("Sent end\n");
+    printf("Sent end, %d\n", my_rank);
 }
 
 int main(int argc, char** argv) {
