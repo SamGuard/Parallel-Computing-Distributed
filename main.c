@@ -263,7 +263,6 @@ int is_worker_done(int rank) {
 void manager(const unsigned int width, const unsigned int height,
              const unsigned int n_process, const double precision,
              struct timeval startTime) {
-    return;
     // printf("Started manager\n");
     const unsigned int n_workers = n_process - 1;  // Number of workers
     const float gap =
@@ -271,6 +270,7 @@ void manager(const unsigned int width, const unsigned int height,
 
     grid_metadata* g_data_array;  // Stores meta data about the workers grids
     g_data_array = send_init_data_to_workers(width, gap, n_workers, precision);
+    return;
     // printf("Sent init data\n");
     Grid g;
     g.width = width;
@@ -345,12 +345,12 @@ double compute_step(Grid* in, Grid* out) {
 }
 
 void worker(const unsigned int my_rank) {
-    return;
     initial_data init_data;
     MPI_Status stat;
     Grid g0, g1, temp;
     MPI_Recv(&init_data, 1, initial_data_handle, 0, TAG_INIT_GRID,
              MPI_COMM_WORLD, &stat);
+    return;
     g0.width = g1.width = init_data.width;
     g0.height = g1.height = init_data.height;
     // printf("Width: %d, Height: %d\n", g0.width, g0.height);
