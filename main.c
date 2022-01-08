@@ -434,7 +434,7 @@ int main(int argc, char** argv) {
         manager(width, height, nproc, precision, startTime);
     } else {
         worker(myrank);
-        printf("Worker exiting\n");
+        printf("Worker exiting %d\n", myrank);
     }
     MPI_Finalize();
 
