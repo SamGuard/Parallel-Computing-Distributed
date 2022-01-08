@@ -346,10 +346,9 @@ double compute_step(Grid* in, Grid* out) {
 
 void worker(const unsigned int my_rank) {
     initial_data init_data;
-    void *buffer = malloc(28);
     MPI_Status stat;
     Grid g0, g1, temp;
-    MPI_Recv(buffer, 1, initial_data_handle, 0, TAG_INIT_GRID,
+    MPI_Recv(&init_data, 1, initial_data_handle, 0, TAG_INIT_GRID,
              MPI_COMM_WORLD, &stat);
     return;
     g0.width = g1.width = init_data.width;
@@ -433,7 +432,7 @@ int main(int argc, char** argv) {
     create_custom_data_types();
 
     if (myrank == 0) {
-        printf("int: %d, double: %d", sizeof(int), sizeof(double));
+        printf("int: %d, double: %d\n", sizeof(unsigned int), sizeof(double));
         manager(width, height, nproc, precision, startTime);
         printf("done\n");
     } else {
