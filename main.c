@@ -278,7 +278,8 @@ void manager(const unsigned int width, const unsigned int height,
 
     // Initalise each worker with grid
     send_entire_grid_to_workers(gap, n_workers, &g, g_data_array);
-    // printf("Sent entire grid\n");
+    return;
+    // Main loop
     unsigned int row1, row2;
     int is_finished = FALSE;
     unsigned int iteration = 0;
@@ -370,7 +371,7 @@ void worker(const unsigned int my_rank) {
         g1.val[y * g0.width] = g0.val[y * g0.width];
         g1.val[(y + 1) * g0.width - 1] = g0.val[(y + 1) * g0.width - 1];
     }
-
+    return;
     int is_finished = FALSE, is_less_than_prec;
     while (TRUE) {
         // See if program is finished
