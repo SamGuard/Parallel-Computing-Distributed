@@ -9,6 +9,8 @@
 // Handles for custom datatypes
 MPI_Datatype initial_data_handle;
 
+// Initially I used datatypes but when running on the hpc there were errors i
+// could not solve
 void create_custom_data_types() {
     // init_data
     {
@@ -269,8 +271,7 @@ void manager(const unsigned int width, const unsigned int height,
 
     grid_metadata* g_data_array;  // Stores meta data about the workers grids
     g_data_array = send_init_data_to_workers(width, gap, n_workers, precision);
-    return;
-    // printf("Sent init data\n");
+
     Grid g;
     g.width = width;
     g.height = height;
@@ -350,10 +351,9 @@ void worker(const unsigned int my_rank, const double precision) {
     }
     MPI_Status stat;
     Grid g0, g1, temp;
-    MPI_Recv(init_data, 2, MPI_UINT32_T, 0, TAG_INIT_GRID,
-             MPI_COMM_WORLD, &stat);
-    printf("%d %d\n", init_data[0], init_data[1]);
-    return;
+    MPI_Recv(init_data, 2, MPI_UINT32_T, 0, TAG_INIT_GRID, MPI_COMM_WORLD,
+             &stat);
+
     g0.width = g1.width = init_data[0];
     g0.height = g1.height = init_data[1];
     // printf("Width: %d, Height: %d\n", g0.width, g0.height);
@@ -432,7 +432,7 @@ int main(int argc, char** argv) {
     // printf("%s_%d connected.\n", name, myrank);
 
     // Initalise custom data types
-    create_custom_data_types();
+    // create_custom_data_types();
 
     if (myrank == 0) {
         manager(width, height, nproc, precision, startTime);
