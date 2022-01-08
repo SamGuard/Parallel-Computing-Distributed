@@ -96,7 +96,7 @@ grid_metadata* send_init_data_to_workers(unsigned int width, float gap,
                                          unsigned int n_workers,
                                          double precision) {
     MPI_Request init_data_requests[n_workers];
-    initial_data init_data;
+    unsigned int init_data[2];
     // Holds all information about the position, size and length of grids in
     // workers
     grid_metadata *g_data_array =
@@ -110,19 +110,17 @@ grid_metadata* send_init_data_to_workers(unsigned int width, float gap,
     unsigned int start_row, end_row;
     for (unsigned int i = 0; i < n_workers; i++) {
         g_data = &g_data_array[i];
-        init_data.width = g_data->width = width;
+        init_data[0] = g_data->width = width;
 
         // Partition the grid into n_worker amount of groups of rows and then
         // add 1 or 2 rows for the perimeter around it
         start_row = (unsigned int)(gap * i) - (i == 0 ? 0 : 1);
         end_row = (unsigned int)(gap * (i + 1) + (i == n_workers - 1 ? 0 : 1));
         g_data->start_index = start_row * width;
-        init_data.height = g_data->height = end_row - start_row;
+        init_data[1] = g_data->height = end_row - start_row;
         g_data->length = g_data->height * width;
 
-        init_data.precision = precision;
-        printf("size: %ld\n", sizeof(initial_data));
-        MPI_Send(&init_data, 1, initial_data_handle, i + 1, TAG_INIT_GRID,
+        MPI_Send(init_data, 2, MPI_UINT32_T, i + 1, TAG_INIT_GRID,
                  MPI_COMM_WORLD);
     }
 
@@ -345,32 +343,36 @@ double compute_step(Grid* in, Grid* out) {
     return max_diff;
 }
 
-void worker(const unsigned int my_rank) {
-    initial_data init_data;
+void worker(const unsigned int my_rank, const double precision) {
+    unsigned int init_data[2];
+    if (init_data == NULL) {
+        printf("Failed to allocate memory\n");
+    }
     MPI_Status stat;
     Grid g0, g1, temp;
-    MPI_Recv(&init_data, 1, initial_data_handle, 0, TAG_INIT_GRID,
+    MPI_Recv(init_data, 2, MPI_UINT32_T, 0, TAG_INIT_GRID,
              MPI_COMM_WORLD, &stat);
+    printf("%d %d\n", init_data[0], init_data[1]);
     return;
-    g0.width = g1.width = init_data.width;
-    g0.height = g1.height = init_data.height;
+    g0.width = g1.width = init_data[0];
+    g0.height = g1.height = init_data[1];
     // printf("Width: %d, Height: %d\n", g0.width, g0.height);
     generate_grid(&g0, PATTERN_ZERO);
     generate_grid(&g1, PATTERN_ZERO);
 
-    const double precision = init_data.precision;
+    // const double precision = init_data.precision;
 
     // Get starting values of the grid
     MPI_Recv(g0.val, g0.width * g0.height, MPI_DOUBLE, 0, TAG_GRID_DATA,
              MPI_COMM_WORLD, &stat);
 
     // copy perimeter from g0 to g1 as these are constant
-    for (int x = 0; x < g0.width; x++) {
+    for (unsigned int x = 0; x < g0.width; x++) {
         g1.val[x] = g0.val[x];
         g1.val[x + g0.width * (g0.height - 1)] =
             g0.val[x + g0.width * (g0.height - 1)];
     }
-    for (int y = 0; y < g0.height; y++) {
+    for (unsigned int y = 0; y < g0.height; y++) {
         g1.val[y * g0.width] = g0.val[y * g0.width];
         g1.val[(y + 1) * g0.width - 1] = g0.val[(y + 1) * g0.width - 1];
     }
@@ -435,7 +437,7 @@ int main(int argc, char** argv) {
     if (myrank == 0) {
         manager(width, height, nproc, precision, startTime);
     } else {
-        worker(myrank);
+        worker(myrank, precision);
     }
     MPI_Finalize();
 
