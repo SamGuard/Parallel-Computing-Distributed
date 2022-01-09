@@ -317,9 +317,9 @@ void manager(const unsigned int width, const unsigned int height,
     double diffTime = ((endTime.tv_sec * 1000000 + endTime.tv_usec) -
                        (startTime.tv_sec * 1000000 + startTime.tv_usec));
     diffTime = diffTime / 1000000.0;
-    printf("%d,%u,%u,%f,%d,%f,", n_process, width, height, precision,
+    printf("%d,%u,%u,%f,%d,%f\n", n_process, width, height, precision,
            iteration, diffTime);
-    print_grid(&g);
+    //print_grid(&g);
 
     // print_grid(&g);
     // printf("------\n");
