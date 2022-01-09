@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/time.h>
 
 #include "./main.h"
 
@@ -70,6 +71,8 @@ double compute_step(Grid* in, Grid* out) {
 }
 
 int main(int argc, char** argv) {
+    struct timeval startTime;
+    gettimeofday(&startTime, NULL);
     unsigned int width = 64, height = 64;
     double precision = 0.001;
     if (argc == 4) {
@@ -96,7 +99,13 @@ int main(int argc, char** argv) {
         g1 = g0;
         g0 = temp;
     }
-    printf("%d,%u,%u,%f,%d,Na,", 1, width, height, precision, iteration);
-    print_grid(&g1);
+
+    struct timeval endTime;
+    gettimeofday(&endTime, NULL);
+    double diffTime = ((endTime.tv_sec * 1000000 + endTime.tv_usec) -
+                       (startTime.tv_sec * 1000000 + startTime.tv_usec));
+    diffTime = diffTime / 1000000.0;
+    printf("%d,%u,%u,%f,%d,%f\n", 1, width, height, precision, iteration, diffTime);
+    //print_grid(&g1);
     return 0;
 }
