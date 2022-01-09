@@ -7,9 +7,9 @@
 #SBATCH --output="output.txt"
 #SBATCH --error="error.txt"
 mpicc ./Parallel-Computing-Distributed/main.c -o main -lm -O3
-mpirun -np 2 ./main 1000 1000 0.0001
-mpirun -np 36 ./main 1000 1000 0.0001
-mpirun -np 70 ./main 1000 1000 0.0001
-mpirun -np 104 ./main 1000 1000 0.0001
-mpirun -np 138 ./main 1000 1000 0.0001
-mpirun -np 176 ./main 1000 1000 0.0001
+mpirun -np 2 ./main 5000 5000 0.0001
+mpirun -np 36 ./main 5000 5000 0.0001
+mpirun -np 70 ./main 5000 5000 0.0001
+mpirun -np 104 ./main 5000 5000 0.0001
+mpirun -np 138 ./main 5000 5000 0.0001
+mpirun -np 176 ./main 5000 5000 0.0001
