@@ -82,7 +82,7 @@ void generate_grid(Grid* g, int init) {
         } else if (init == PATTERN_GRADIENT) {
             if (x == 0 || (y == 0 && x != width - 1)) {
                 g->val[i] = 1.0;
-            } else if (x == width - 1 || y == height - 1) {
+            } else if (x == width - 1 || (x != 0 && y == height - 1)) {
                 g->val[i] = -1.0;
             } else {
                 g->val[i] = 0.0;
@@ -317,8 +317,9 @@ void manager(const unsigned int width, const unsigned int height,
     double diffTime = ((endTime.tv_sec * 1000000 + endTime.tv_usec) -
                        (startTime.tv_sec * 1000000 + startTime.tv_usec));
     diffTime = diffTime / 1000000.0;
-    printf("%d,%u,%u,%f,%d,%f\n", n_process, width, height, precision,
+    printf("%d,%u,%u,%f,%d,%f,", n_process, width, height, precision,
            iteration, diffTime);
+    print_grid(&g);
 
     // print_grid(&g);
     // printf("------\n");

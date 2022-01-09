@@ -1,1 +1,1 @@
-mpicc main.c -o ./bin/main -lm -Wall -Wextra
+mpicc main.c -o ./bin/main -lm -Wall -Wextra -O3
