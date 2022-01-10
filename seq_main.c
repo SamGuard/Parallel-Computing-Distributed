@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
     double diffTime = ((endTime.tv_sec * 1000000 + endTime.tv_usec) -
                        (startTime.tv_sec * 1000000 + startTime.tv_usec));
     diffTime = diffTime / 1000000.0;
-    printf("%d,%u,%u,%f,%d,%f\n", 1, width, height, precision, iteration, diffTime);
-    //print_grid(&g1);
+    printf("%d,%u,%u,%f,%d,%f,", 1, width, height, precision, iteration, diffTime);
+    print_grid(&g1);
     return 0;
 }

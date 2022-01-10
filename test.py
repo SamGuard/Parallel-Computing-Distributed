@@ -99,7 +99,7 @@ def validate():
 
 
 
-        print("Threads: {}, Dim: {}x{}, Success: {}".format(workers,
+        print("Workers: {}, Dim: {}x{}, Success: {}".format(workers,
                                                             width, height, check["success"]), end="")
         if(check["success"] == False):
             print(", Reason: {}".format(check["reason"]))

@@ -45,17 +45,6 @@ void print_grid(Grid* g) {
     }
 }
 
-void print_error(int err_code) {
-    char* stringBuff = (char*)malloc(2048 * sizeof(char));
-    if (stringBuff == NULL) {
-        printf("Failed to allocate in print_error");
-    }
-    int resLength = 0;
-    MPI_Error_string(err_code, stringBuff, &resLength);
-    printf("Error in communication, error code: %s\n", stringBuff);
-    free(stringBuff);
-}
-
 // initialises grid
 // init decided what pattern to initialise the grid with
 void generate_grid(Grid* g, int init) {
@@ -95,9 +84,7 @@ void generate_grid(Grid* g, int init) {
 
 // Send data to workers of the size of grid they will work on
 grid_metadata* send_init_data_to_workers(unsigned int width, float gap,
-                                         unsigned int n_workers,
-                                         double precision) {
-    MPI_Request init_data_requests[n_workers];
+                                         unsigned int n_workers) {
     unsigned int init_data[2];
     // Holds all information about the position, size and length of grids in
     // workers
@@ -130,7 +117,7 @@ grid_metadata* send_init_data_to_workers(unsigned int width, float gap,
 }
 
 // Sends each worker their section of the grid to work on
-void send_entire_grid_to_workers(const float gap, const unsigned int n_workers,
+void send_entire_grid_to_workers(const unsigned int n_workers,
                                  Grid* g, grid_metadata* g_data_array) {
     // Returned from function so it can wait until all data has been sent before
     // checking if they have finished
@@ -158,7 +145,7 @@ void retrieve_entire_grid_from_workers(const float gap,
         printf("grid not initialised in retrieve_entire_grid\n");
         return;
     }
-
+    // Temporary place to store data from workers
     double* valBuff =
         (double*)malloc(((int)ceil(gap) * 2) * g->width * sizeof(double));
     if (valBuff == NULL) {
@@ -170,11 +157,7 @@ void retrieve_entire_grid_from_workers(const float gap,
     unsigned int index;
     for (unsigned int i = 0; i < n_workers; i++) {
         g_data = &g_data_array[i];
-
-        /*
-        printf("Start: %d, Length: %d, Height: %d\n", g_data->start_index,
-               g_data->length, g_data->height);
-        */
+        // Get grid from worker
         MPI_Recv(valBuff, g_data->length, MPI_DOUBLE, i + 1, TAG_GRID_DATA,
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
@@ -184,10 +167,6 @@ void retrieve_entire_grid_from_workers(const float gap,
         for (unsigned int y = 1; y < g_data->height - 1; y++) {
             for (unsigned int x = 1; x < g->width - 1; x++) {
                 index = x + y * g->width;
-                /*
-                printf("x: %d, y: %d, index: %d, val_index: %d\n", x, y, index,
-                       g_data->start_index + index);
-                */
                 g->val[g_data->start_index + index] = valBuff[index];
             }
         }
@@ -254,6 +233,7 @@ void recv_perimiter(Grid* g, unsigned int row1, unsigned int row2,
     free(buff);
 }
 
+// Sends if the worker is done
 int is_worker_done(int rank) {
     int res;
     MPI_Recv(&res, 1, MPI_INT, rank, TAG_IS_WORKER_DONE, MPI_COMM_WORLD,
@@ -269,8 +249,8 @@ void manager(const unsigned int width, const unsigned int height,
     const float gap =
         (float)height / (float)n_workers;  // How many columns per worker
 
-    grid_metadata* g_data_array;  // Stores meta data about the workers grids
-    g_data_array = send_init_data_to_workers(width, gap, n_workers, precision);
+    grid_metadata* g_data_array;  // Stores data about the workers grids
+    g_data_array = send_init_data_to_workers(width, gap, n_workers);
 
     Grid g;
     g.width = width;
@@ -278,24 +258,27 @@ void manager(const unsigned int width, const unsigned int height,
     generate_grid(&g, PATTERN_GRADIENT);
 
     // Initalise each worker with grid
-    send_entire_grid_to_workers(gap, n_workers, &g, g_data_array);
+    send_entire_grid_to_workers(n_workers, &g, g_data_array);
 
     // Main loop
-    unsigned int row1, row2;
-    int is_finished = FALSE;
-    unsigned int iteration = 0;
+    unsigned int row1, row2;     // Index of rows to send
+    int is_finished = FALSE;     // Should the program exit
+    unsigned int iteration = 0;  // Counts the number of iterations
     while (is_finished == FALSE) {
         for (unsigned int i = 0; i < n_workers; i++) {
             row1 = g_data_array[i].start_index / width;
             row2 = row1 + g_data_array[i].height - 1;
+            // Send if the worker should exit or not
             MPI_Send(&is_finished, 1, MPI_INT, i + 1, TAG_IS_WORKER_DONE,
                      MPI_COMM_WORLD);
+            // Send only the information needed for the next iteration
             send_perimeter(&g, row1, row2, i + 1);
         }
         is_finished = TRUE;
         for (unsigned int i = 0; i < n_workers; i++) {
             row1 = g_data_array[i].start_index / width + 1;
             row2 = row1 + g_data_array[i].height - 3;
+            // Take in only the data that is needed in other workers' grids
             recv_perimiter(&g, row1, row2, i + 1);
             if (is_worker_done(i + 1) == FALSE) {
                 is_finished = FALSE;
@@ -303,31 +286,35 @@ void manager(const unsigned int width, const unsigned int height,
         }
         iteration++;
     }
-    // printf("Done interations\n");
+    // Tell all workers to exit
     for (unsigned int i = 0; i < n_workers; i++) {
         MPI_Send(&is_finished, 1, MPI_INT, i + 1, TAG_IS_WORKER_DONE,
                  MPI_COMM_WORLD);
     }
-    // printf("Sent finish message\n");
-    retrieve_entire_grid_from_workers(gap, n_workers, &g, g_data_array);
-    // printf("Retrieved entire grid\n");
 
+    // Collect all data from workers
+    retrieve_entire_grid_from_workers(gap, n_workers, &g, g_data_array);
+
+    // Calculate time difference
     struct timeval endTime;
     gettimeofday(&endTime, NULL);
+    // Adds milliseconds to seconds * 1000000 then finds the difference between
+    // start and finishe time
     double diffTime = ((endTime.tv_sec * 1000000 + endTime.tv_usec) -
                        (startTime.tv_sec * 1000000 + startTime.tv_usec));
+    // Scales time to seconds
     diffTime = diffTime / 1000000.0;
-    printf("%d,%u,%u,%f,%d,%f\n", n_process, width, height, precision,
-           iteration, diffTime);
+    printf("%d,%u,%u,%f,%d,%f,", n_process, width, height, precision, iteration,
+           diffTime);
     print_grid(&g);
 
-    // print_grid(&g);
-    // printf("------\n");
-
+    free(g.val);
     free(g_data_array);
 }
 
 double compute_step(Grid* in, Grid* out) {
+    // v0-3 are the values of the surrounding cells, max_diff is the maximum
+    // difference between values, diff is used in the calculation of max_diff
     double v0, v1, v2, v3, max_diff = 0.0, diff;
     unsigned int index;
     for (unsigned int y = 1; y < in->height - 1; y++) {
@@ -337,8 +324,10 @@ double compute_step(Grid* in, Grid* out) {
             v1 = in->val[x - 1 + y * in->width];
             v2 = in->val[x + (y + 1) * in->width];
             v3 = in->val[x + (y - 1) * in->width];
+            // Calc difference
             out->val[index] = (v0 + v1 + v2 + v3) / 4.0;
             diff = fabs(out->val[index] - in->val[index]);
+            // Store if bigger
             max_diff = max_diff < diff ? diff : max_diff;
         }
     }
@@ -346,26 +335,25 @@ double compute_step(Grid* in, Grid* out) {
 }
 
 void worker(const unsigned int my_rank, const double precision) {
+    // Get width and height
     unsigned int init_data[2];
     if (init_data == NULL) {
         printf("Failed to allocate memory\n");
     }
-    MPI_Status stat;
+
     Grid g0, g1, temp;
     MPI_Recv(init_data, 2, MPI_UINT32_T, 0, TAG_INIT_GRID, MPI_COMM_WORLD,
-             &stat);
+             MPI_STATUS_IGNORE);
 
+    // Init grids
     g0.width = g1.width = init_data[0];
     g0.height = g1.height = init_data[1];
-    // printf("Width: %d, Height: %d\n", g0.width, g0.height);
     generate_grid(&g0, PATTERN_ZERO);
     generate_grid(&g1, PATTERN_ZERO);
 
-    // const double precision = init_data.precision;
-
     // Get starting values of the grid
     MPI_Recv(g0.val, g0.width * g0.height, MPI_DOUBLE, 0, TAG_GRID_DATA,
-             MPI_COMM_WORLD, &stat);
+             MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     // copy perimeter from g0 to g1 as these are constant
     for (unsigned int x = 0; x < g0.width; x++) {
@@ -386,11 +374,13 @@ void worker(const unsigned int my_rank, const double precision) {
         if (is_finished == TRUE) {
             break;
         }
-
+        // Get data from main grid
         recv_perimiter(&g0, 0, g0.height - 1, 0);
         is_less_than_prec = compute_step(&g0, &g1) < precision;
+        // Send data needed in other workers
         send_perimeter(&g1, 1, g0.height - 2, 0);
 
+        // Swap pointers around
         temp = g1;
         g1 = g0;
         g0 = temp;
@@ -398,8 +388,11 @@ void worker(const unsigned int my_rank, const double precision) {
         MPI_Send(&is_less_than_prec, 1, MPI_INT, 0, TAG_IS_WORKER_DONE,
                  MPI_COMM_WORLD);
     }
+    // Send all data back to main grid
     MPI_Send(g0.val, g0.width * g0.height, MPI_DOUBLE, 0, TAG_GRID_DATA,
              MPI_COMM_WORLD);
+    free(g0.val);
+    free(g1.val);
 }
 
 int main(int argc, char** argv) {
@@ -430,7 +423,7 @@ int main(int argc, char** argv) {
     // Get name of hardware running this process
     namelen = MPI_MAX_PROCESSOR_NAME;
     MPI_Get_processor_name(name, &namelen);
-    // printf("%s_%d connected.\n", name, myrank);
+    
 
     // Initalise custom data types
     // create_custom_data_types();
