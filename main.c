@@ -319,7 +319,7 @@ void manager(const unsigned int width, const unsigned int height,
     diffTime = diffTime / 1000000.0;
     printf("%d,%u,%u,%f,%d,%f\n", n_process, width, height, precision,
            iteration, diffTime);
-    //print_grid(&g);
+    print_grid(&g);
 
     // print_grid(&g);
     // printf("------\n");
