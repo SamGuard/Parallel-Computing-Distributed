@@ -2,8 +2,8 @@
 #SBATCH --account=cm30225
 #SBATCH --partition=teaching
 # Name of job (optional)
-#SBATCH --job-name=aAAaaAAaa
-#SBATCH --nodes=4
+#SBATCH --job-name=gj_everyone:)
+#SBATCH --nodes=1
 #SBATCH --output="output.txt"
 #SBATCH --error="error.txt"
 mpicc ./Parallel-Computing-Distributed/main.c -o main -lm -O3
