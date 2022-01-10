@@ -428,9 +428,11 @@ int main(int argc, char** argv) {
     // Initalise custom data types
     // create_custom_data_types();
 
+    // The program can only handle at most 1 worker per row so nproc must be less than the height
+    // Threads with rank above or equal to the height are stopped
     if (myrank == 0) {
-        manager(width, height, nproc, precision, startTime);
-    } else {
+        manager(width, height, (unsigned int)nproc >= height ? height : (unsigned int) nproc, precision, startTime);
+    } else if((unsigned int)myrank < height) {
         worker(myrank, precision);
     }
     MPI_Finalize();
